@@ -1,66 +1,117 @@
 """A Markov chain generator that can tweet random messages."""
-
+import os
 import sys
+import discord
 from random import choice
 
 
-def open_and_read_file(filenames):
-    """Take list of files. Open them, read them, and return one long string."""
-
-    body = ''
-    for filename in filenames:
-        text_file = open(filename)
-        body = body + text_file.read()
-        text_file.close()
-
-    return body
+def main():
 
 
-def make_chains(text_string):
-    """Take input text as string; return dictionary of Markov chains."""
+    def open_and_read_file(file_path):
+        """Take file path as string; return text as string.
 
-    chains = {}
+        Takes a string that is a file path, opens the file, and turns
+        the file's contents as one string of text.
+        """
+        file = open(file_path).read()
 
-    words = text_string.split()
-    for i in range(len(words) - 2):
-        key = (words[i], words[i + 1])
-        value = words[i + 2]
-
-        if key not in chains:
-            chains[key] = []
-
-        chains[key].append(value)
-
-    return chains
+        return file
 
 
-def make_text(chains):
-    """Take dictionary of Markov chains; return random text."""
+    def make_chains(text_string):
+        """Take input text as string; return dictionary of Markov chains.
 
-    keys = list(chains.keys())
-    key = choice(keys)
+        A chain will be a key that consists of a tuple of (word1, word2)
+        and the value would be a list of the word(s) that follow those two
+        words in the input text.
 
-    words = [key[0], key[1]]
-    while key in chains:
-        # Keep looping until we have a key that isn't in the chains
-        # (which would mean it was the end of our original text).
+        For example:
 
-        # Note that for long texts (like a full book), this might mean
-        # it would run for a very long time.
+            >>> chains = make_chains('hi there mary hi there juanita')
 
+        Each bigram (except the last) will be a key in chains:
+
+            >>> sorted(chains.keys())
+            [('hi', 'there'), ('mary', 'hi'), ('there', 'mary')]
+
+        Each item in chains is a list of all possible following words:
+
+            >>> chains[('hi', 'there')]
+            ['mary', 'juanita']
+
+            >>> chains[('there','juanita')]
+            [None]
+        """
+
+        chains = {}
+
+        words = text_string.split()
+
+        words.append(None)
+
+        for i in range(len(words) - 2):
+            key = (words[i], words[i + 1])
+            value = words[i + 2]
+
+            if key not in chains:
+                chains[key] = []
+
+            chains[key].append(value)
+
+        return chains
+
+
+    def make_text(chains):
+        """Return text from chains."""
+
+        # your code goes here
+        key = choice(list(chains.keys()))
+        words = [key[0], key[1]]
         word = choice(chains[key])
-        words.append(word)
-        key = (key[1], word)
 
-    return ' '.join(words)
+        while word is not None:
+            key = (key[1], word)
+            words.append(word)
+            word = choice(chains[key])
+
+        return ' '.join(words)
 
 
-# Get the filenames from the user through a command line prompt, ex:
-# python markov.py green-eggs.txt shakespeare.txt
-filenames = sys.argv[1:]
+    input_path = 'greenEggs.txt'
 
-# Open the files and turn them into one long string
-text = open_and_read_file(filenames)
+    # Open the file and turn it into one long string
+    input_text = open_and_read_file(input_path)
 
-# Get a Markov chain
-chains = make_chains(text)
+    # Get a Markov chain
+    chains = make_chains(input_text)
+
+    # Produce random text
+    random_text = make_text(chains)
+
+    # print(random_text)
+    return random_text
+
+
+
+
+# Discord Bot code
+
+client = discord.Client()
+
+@client.event
+async def on_ready():
+    print(f"Successfully connected! Logged in as {client.user}.")
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+    else:
+        if message.content.startswith('$hello'):
+            await message.channel.send(f"hello, {message.author}")
+        elif message.content.startswith('$markov'):
+            await message.channel.send(f"{main()}")
+
+
+client.run(os.environ['DISCORD_TOKEN'])
